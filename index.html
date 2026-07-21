@@ -1,40 +1,185 @@
 <!DOCTYPE html>
 <html lang="zh">
+
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Neural Abyss — Mirror Hall</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { overflow: hidden; background: #000; cursor: none; }
-    #hud { position: fixed; inset: 0; pointer-events: none; z-index: 100; font-family: 'Courier New', monospace; }
-    #panel { position: absolute; top: 28px; left: 28px; color: #aa1a00; font-size: 10px; letter-spacing: 2.5px; line-height: 2.4; text-shadow: 0 0 12px #ff0000aa; }
-    .row { display: flex; gap: 10px; }
-    .lbl { color: #3d0800; } .val { color: #ff3300; }
-    .div-line { width: 220px; height: 1px; background: linear-gradient(90deg, #3d0800, transparent); margin: 6px 0; }
-    #hint { position: absolute; bottom: 28px; right: 28px; color: #330700; font-size: 9px; letter-spacing: 2px; text-align: right; line-height: 2; }
-    #flash { position: fixed; inset: 0; background: radial-gradient(circle at center, rgba(180,20,0,.22) 0%, transparent 70%); opacity: 0; pointer-events: none; transition: opacity .05s; }
-    #flash.active { opacity: 1; transition: none; }
-    #xhair { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 24px; height: 24px; }
-    #xhair::before,#xhair::after { content:''; position: absolute; background: rgba(200,30,0,.45); }
-    #xhair::before { width:1px; height:24px; left:11px; top:0; }
-    #xhair::after  { width:24px; height:1px; top:11px; left:0; }
-    #xhair-ring { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:8px; height:8px; border:1px solid rgba(200,30,0,.4); border-radius:50%; animation:pr 2.2s ease-in-out infinite; }
-    @keyframes pr { 0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.5;} 50%{transform:translate(-50%,-50%) scale(1.8);opacity:.08;} }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      overscroll-behavior: none;
+    }
+
+    body {
+      overflow: hidden;
+      background: #000;
+      cursor: none;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #hud { 
+      position: fixed; 
+      inset: 0; 
+      pointer-events: none; 
+      z-index: 100; 
+      font-family: "Courier New", "Chalkboard SE", "Microsoft JhengHei", monospace; 
+    }
+    #panel { 
+      position: absolute; 
+      top: calc(28px + env(safe-area-inset-top, 0px)); 
+      left: calc(28px + env(safe-area-inset-left, 0px)); 
+      color: #aa1a00; 
+      font-size: 11px;
+      letter-spacing: 2px; 
+      line-height: 2.4; 
+      text-shadow: 0 0 12px #ff0000aa; 
+      max-width: 60vw;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .lbl {
+      color: #3d0800;
+    }
+
+    .val {
+      color: #ff3300;
+    }
+
+    .div-line {
+      width: 220px;
+      height: 1px;
+      background: linear-gradient(90deg, #3d0800, transparent);
+      margin: 6px 0;
+    }
+
+    #hint {
+      position: absolute;
+      bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+      right: calc(28px + env(safe-area-inset-right, 0px));
+      color: #330700;
+      font-size: 9px;
+      letter-spacing: 2px;
+      text-align: right;
+      line-height: 2;
+    }
+
+    /* ── 手機窄螢幕：縮小字級與邊距，避免版面爆版 ── */
+    @media (max-width: 480px) {
+      #panel {
+        top: calc(14px + env(safe-area-inset-top, 0px));
+        left: calc(14px + env(safe-area-inset-left, 0px));
+        font-size: 9px;
+        line-height: 2.1;
+        max-width: 68vw;
+      }
+      .div-line { width: 150px; }
+      #hint {
+        bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+        right: calc(14px + env(safe-area-inset-right, 0px));
+        font-size: 7px;
+      }
+    }
+
+    #flash {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(180, 20, 0, .22) 0%, transparent 70%);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .05s;
+    }
+
+    #flash.active {
+      opacity: 1;
+      transition: none;
+    }
+
+    #xhair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 24px;
+      height: 24px;
+    }
+
+    #xhair::before,
+    #xhair::after {
+      content: '';
+      position: absolute;
+      background: rgba(200, 30, 0, .45);
+    }
+
+    #xhair::before {
+      width: 1px;
+      height: 24px;
+      left: 11px;
+      top: 0;
+    }
+
+    #xhair::after {
+      width: 24px;
+      height: 1px;
+      top: 11px;
+      left: 0;
+    }
+
+    #xhair-ring {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 8px;
+      height: 8px;
+      border: 1px solid rgba(200, 30, 0, .4);
+      border-radius: 50%;
+      animation: pr 2.2s ease-in-out infinite;
+    }
+
+    @keyframes pr {
+
+      0%,
+      100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: .5;
+      }
+
+      50% {
+        transform: translate(-50%, -50%) scale(1.8);
+        opacity: .08;
+      }
+    }
   </style>
 </head>
+
 <body>
   <div id="hud">
     <div id="panel">
-      <div class="row"><span class="lbl">ORGANISM</span><span class="val" id="s-status">PULSING</span></div>
-      <div class="row"><span class="lbl">DEPTH</span><span class="val" id="s-depth">0.00</span><span class="lbl">μm</span></div>
-      <div class="row"><span class="lbl">NEURAL</span><span class="val" id="s-neural">NOMINAL</span></div>
-      <div class="row"><span class="lbl">PRESSURE</span><span class="val" id="s-press">48.33</span><span class="lbl">kPa</span></div>
+      <div class="row"><span class="lbl">有機載體</span><span class="val" id="s-status">搏動</span></div>
+      <div class="row"><span class="lbl">閾界深度</span><span class="val" id="s-depth">0.00</span><span class="lbl">μm</span></div>
+      <div class="row"><span class="lbl">擬神經叢</span><span class="val" id="s-neural">微瀾</span></div>
+      <div class="row"><span class="lbl">流體內壓</span><span class="val" id="s-press">48.33</span><span class="lbl">kPa</span></div>
       <div class="div-line"></div>
-      <div class="row"><span class="lbl">SCROLL</span><span class="val">→ NAVIGATE</span></div>
-      <div class="row"><span class="lbl">MOUSE</span><span class="val">→ LOOK</span></div>
-      <div class="row"><span class="lbl">CLICK</span><span class="val">→ PRESSURE WAVE</span></div>
+      <div class="row"><span class="lbl">軸向推移</span><span class="val">:: 潛巡造訪</span></div>
+      <div class="row"><span class="lbl">視域尋跡</span><span class="val">:: 窺伺虛空</span></div>
+      <div class="row"><span class="lbl">瞬時干涉</span><span class="val">:: 釋放壓力脈衝</span></div>
     </div>
-    <div id="hint">NEURAL ABYSS<br>MIRROR HALL ENGINE<br>ENV MAP INTEGRATED</div>
+    <div id="hint">意識深淵<br>鏡廊架構引擎<br>界域映射全整合</div>
     <div id="xhair"><div id="xhair-ring"></div></div>
   </div>
   <div id="flash"></div>
@@ -49,11 +194,14 @@
     import * as THREE from 'three';
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.0));
+    // 手機（觸控裝置）GPU較弱，這個shader每個像素要跑95次光線步進，
+    // 全解析度容易掉幀、發燙、讓觸控回饋看起來「卡卡的不直覺」，故降低內部解析度
+    const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isCoarsePointer ? 0.75 : 1.0));
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
-    const scene  = new THREE.Scene();
-    const camera = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
     /* ── Load env texture from embedded base64 ──────────────── */
     const envTex = new THREE.TextureLoader().load(window._ENV_IMG_B64);
@@ -61,20 +209,69 @@
     envTex.minFilter = THREE.LinearMipmapLinearFilter;
 
     const state = {
-      mouse: new THREE.Vector2(0,0),
+      mouse: new THREE.Vector2(0, 0),
       targetZ: 0, currentZ: 0,
       clickTime: -999.0,
     };
-    window.addEventListener('mousemove', e => {
-      state.mouse.set((e.clientX/window.innerWidth)*2-1, -(e.clientY/window.innerHeight)*2+1);
-    });
-    window.addEventListener('wheel', e => { state.targetZ += e.deltaY*.018; });
     const flash = document.getElementById('flash');
-    window.addEventListener('click', () => {
-      state.clickTime = performance.now()*.001;
+
+    function setLookFromClient(x, y) {
+      state.mouse.set((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
+    }
+    function triggerFlash() {
+      state.clickTime = performance.now() * .001;
       flash.classList.add('active');
-      setTimeout(()=>flash.classList.remove('active'), 80);
-    });
+      setTimeout(() => flash.classList.remove('active'), 80);
+    }
+
+    /* ── 滑鼠（桌面）─────────────────────────────────────────── */
+    window.addEventListener('mousemove', e => setLookFromClient(e.clientX, e.clientY));
+    window.addEventListener('wheel', e => { state.targetZ += e.deltaY * .018; }, { passive: true });
+    window.addEventListener('click', triggerFlash);
+
+    /* ── 觸控（手機/平板）───────────────────────────────────────
+       單指拖曳／點按 = 環顧視角（沿用滑鼠位置->視角的邏輯）
+       雙指開合       = 前進／後退（取代滾輪）
+       輕點（無位移）  = 觸發 flash 壓力脈衝                     */
+    let touchStartTime = 0;
+    let touchMoved = false;
+    let lastPinchDist = null;
+
+    function pinchDist(touches) {
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.hypot(dx, dy);
+    }
+
+    window.addEventListener('touchstart', e => {
+      touchStartTime = performance.now();
+      touchMoved = false;
+      if (e.touches.length === 1) {
+        setLookFromClient(e.touches[0].clientX, e.touches[0].clientY);
+      } else if (e.touches.length === 2) {
+        lastPinchDist = pinchDist(e.touches);
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchmove', e => {
+      touchMoved = true;
+      if (e.touches.length === 1) {
+        setLookFromClient(e.touches[0].clientX, e.touches[0].clientY);
+      } else if (e.touches.length === 2) {
+        const dist = pinchDist(e.touches);
+        if (lastPinchDist != null) {
+          state.targetZ += (lastPinchDist - dist) * .04;
+        }
+        lastPinchDist = dist;
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchend', e => {
+      e.preventDefault(); // 避免瀏覽器補送 synthetic click 造成 flash 觸發兩次
+      lastPinchDist = null;
+      const dt = performance.now() - touchStartTime;
+      if (!touchMoved && dt < 300) triggerFlash();
+    }, { passive: false });
 
     /* ════════════════════════════════════════════════════════════
        FRAGMENT SHADER — Mirror Hall Environment Integration
@@ -334,46 +531,53 @@ void main(){
 
     const mat = new THREE.ShaderMaterial({
       uniforms: {
-        uTime:       { value: 0.0 },
+        uTime: { value: 0.0 },
         uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
-        uMouse:      { value: new THREE.Vector2(0,0) },
-        uCameraZ:    { value: 0.0 },
-        uClickTime:  { value: -999.0 },
-        uEnvMap:     { value: envTex },
+        uMouse: { value: new THREE.Vector2(0, 0) },
+        uCameraZ: { value: 0.0 },
+        uClickTime: { value: -999.0 },
+        uEnvMap: { value: envTex },
       },
       vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position,1.0); }`,
       fragmentShader: frag,
     });
 
-    scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), mat));
+    scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat));
 
-    const STATUS = ['PULSING','BREATHING','CONTRACTING','SECRETING','ABSORBING','METABOLIZING','REPLICATING'];
-    const NEURAL  = ['NOMINAL','ALERT','SURGING','LATENT','FIRING','CASCADING','DORMANT'];
+    const STATUS = ['搏動', '吐納', '攣縮', '滲流', '吞噬', '嬗變', '裂殖'];
+    const NEURAL = ['微瀾', '驚蟄', '狂湧', '蟄伏', '灼燒', '崩裂', '寂滅'];
     const sStatus = document.getElementById('s-status');
-    const sDepth  = document.getElementById('s-depth');
+    const sDepth = document.getElementById('s-depth');
     const sNeural = document.getElementById('s-neural');
-    const sPress  = document.getElementById('s-press');
+    const sPress = document.getElementById('s-press');
 
-    function animate(){
+    function animate() {
       requestAnimationFrame(animate);
-      const now=performance.now()*.001;
-      state.currentZ+=(state.targetZ-state.currentZ)*.07;
-      mat.uniforms.uTime.value      = now;
+      const now = performance.now() * .001;
+      state.currentZ += (state.targetZ - state.currentZ) * .07;
+      mat.uniforms.uTime.value = now;
       mat.uniforms.uMouse.value.copy(state.mouse);
-      mat.uniforms.uCameraZ.value   = state.currentZ;
+      mat.uniforms.uCameraZ.value = state.currentZ;
       mat.uniforms.uClickTime.value = state.clickTime;
-      sDepth.textContent  = (state.currentZ*13.8).toFixed(2);
-      sStatus.textContent = STATUS[Math.floor(now*.32)%STATUS.length];
-      sNeural.textContent = NEURAL[Math.floor(now*.21+3)%NEURAL.length];
-      sPress.textContent  = (Math.sin(now*1.28)*11+46).toFixed(2);
+      sDepth.textContent = (state.currentZ * 13.8).toFixed(2);
+      sStatus.textContent = STATUS[Math.floor(now * .32) % STATUS.length];
+      sNeural.textContent = NEURAL[Math.floor(now * .21 + 3) % NEURAL.length];
+      sPress.textContent = (Math.sin(now * 1.28) * 11 + 46).toFixed(2);
       renderer.render(scene, camera);
     }
     animate();
 
-    window.addEventListener('resize',()=>{
+    function handleResize() {
       renderer.setSize(window.innerWidth, window.innerHeight);
       mat.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
-    });
+    }
+    window.addEventListener('resize', handleResize);
+    // 手機轉向、或網址列出現/消失導致的視窗尺寸變化，補上這兩個監聽會更準確
+    window.addEventListener('orientationchange', () => setTimeout(handleResize, 300));
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+    }
   </script>
 </body>
+
 </html>
