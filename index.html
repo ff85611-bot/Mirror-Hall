@@ -109,6 +109,134 @@
       transition: none;
     }
 
+    /* ── 手機虛擬搖桿（左半螢幕按住＝前進/後退）──
+       idle：頁面載入後就以低透明度常駐顯示在左下角，讓使用者「看得到」該往哪按
+       active：手指按下後跳到手指位置、變亮，鬆開回到 idle 位置與透明度        */
+    #joy-base {
+      position: fixed;
+      width: 84px;
+      height: 84px;
+      margin: -42px 0 0 -42px;
+      border: 1px solid rgba(200, 30, 0, .35);
+      border-radius: 50%;
+      box-shadow: 0 0 16px rgba(255, 0, 0, .12) inset;
+      opacity: 0;
+      transition: opacity .25s ease, left .2s ease, top .2s ease;
+      pointer-events: none;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px;
+    }
+
+    #joy-base .chevron {
+      color: rgba(255, 60, 20, .55);
+      font-size: 11px;
+      width: 100%;
+      text-align: center;
+    }
+
+    #joy-base .chevron.up { position: absolute; top: 4px; left: 0; }
+    #joy-base .chevron.down { position: absolute; bottom: 4px; left: 0; }
+
+    #joy-knob {
+      position: fixed;
+      width: 32px;
+      height: 32px;
+      margin: -16px 0 0 -16px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 50, 0, .38), rgba(120, 10, 0, .06));
+      border: 1px solid rgba(255, 70, 0, .55);
+      opacity: 0;
+      transition: opacity .25s ease, left .2s ease, top .2s ease;
+      pointer-events: none;
+      z-index: 21;
+    }
+
+    #joy-base.idle,
+    #joy-knob.idle {
+      opacity: .4;
+    }
+
+    #joy-base.active,
+    #joy-knob.active {
+      opacity: 1;
+      transition: none;
+    }
+
+    #joy-label {
+      position: fixed;
+      color: rgba(200, 60, 30, .5);
+      font-size: 9px;
+      letter-spacing: 3px;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity .3s ease;
+      z-index: 20;
+    }
+
+    #joy-label.idle { opacity: 1; }
+
+    #look-label {
+      position: fixed;
+      top: 50%;
+      right: 22px;
+      transform: translateY(-50%);
+      color: rgba(200, 60, 30, .5);
+      font-size: 9px;
+      letter-spacing: 3px;
+      writing-mode: vertical-rl;
+      opacity: 0;
+      transition: opacity .5s ease;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    #look-label.idle { opacity: 1; }
+
+    /* ── 手機首次進入的操作教學（僅觸控裝置顯示，點一下畫面即消失）── */
+    #tutorial {
+      position: fixed;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      background: rgba(0, 0, 0, .78);
+      z-index: 40;
+      opacity: 1;
+      pointer-events: none;
+      transition: opacity .4s ease;
+    }
+
+    #tutorial.hide { opacity: 0; }
+
+    .tut-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      color: #c9603a;
+      font-size: 12px;
+      letter-spacing: 2px;
+    }
+
+    .tut-icon {
+      width: 30px;
+      text-align: center;
+      font-size: 18px;
+      color: #ff3300;
+      text-shadow: 0 0 10px rgba(255, 0, 0, .55);
+    }
+
+    .tut-sub {
+      margin-top: 6px;
+      font-size: 9px;
+      letter-spacing: 3px;
+      color: rgba(180, 90, 60, .6);
+    }
+
     #xhair {
       position: absolute;
       top: 50%;
@@ -181,6 +309,20 @@
     </div>
     <div id="hint">意識深淵<br>鏡廊架構引擎<br>界域映射全整合</div>
     <div id="xhair"><div id="xhair-ring"></div></div>
+    <div id="joy-base">
+      <span class="chevron up">▲</span>
+      <span class="chevron down">▼</span>
+    </div>
+    <div id="joy-knob"></div>
+    <div id="joy-label">前進 · 後退</div>
+    <div id="look-label">拖曳環顧四周</div>
+  </div>
+
+  <div id="tutorial">
+    <div class="tut-row"><span class="tut-icon">⇅</span><span>畫面左側按住拖曳：前進／後退</span></div>
+    <div class="tut-row"><span class="tut-icon">⇄</span><span>畫面右側拖曳：環顧四周</span></div>
+    <div class="tut-row"><span class="tut-icon">●</span><span>輕點畫面：釋放壓力脈衝</span></div>
+    <div class="tut-sub">輕觸畫面開始</div>
   </div>
   <div id="flash"></div>
 
@@ -209,69 +351,160 @@
     envTex.minFilter = THREE.LinearMipmapLinearFilter;
 
     const state = {
-      mouse: new THREE.Vector2(0, 0),
+      mouse: new THREE.Vector2(0, 0),       // 實際餵給 shader 的「平滑後」視角值
+      mouseTarget: new THREE.Vector2(0, 0), // 輸入（滑鼠/拖曳）直接改的是這個「目標值」
       targetZ: 0, currentZ: 0,
       clickTime: -999.0,
+      moveInput: 0, // -1..1，搖桿的前後分量，每一幀持續累加到 targetZ（放開自動歸零）
     };
     const flash = document.getElementById('flash');
+    const joyBase = document.getElementById('joy-base');
+    const joyKnob = document.getElementById('joy-knob');
+    const joyLabel = document.getElementById('joy-label');
+    const lookLabel = document.getElementById('look-label');
+    const tutorial = document.getElementById('tutorial');
+    const isTouch = window.matchMedia('(pointer: coarse)').matches;
 
-    function setLookFromClient(x, y) {
-      state.mouse.set((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1);
+    // 每幀往目標值平滑逼近（用 dt 計算，跟畫面更新率無關），
+    // 這樣視角不會因為單一個觸控樣本的雜訊而瞬間「跳掉」，手感才會像 POOLS 那樣穩定不晃
+    function smoothTo(current, target, rate, dt) {
+      const t = 1 - Math.exp(-rate * dt);
+      return current + (target - current) * t;
     }
+
     function triggerFlash() {
       state.clickTime = performance.now() * .001;
       flash.classList.add('active');
       setTimeout(() => flash.classList.remove('active'), 80);
     }
+    // 拖曳靈敏度：橫向以「螢幕寬度」、縱向以「螢幕高度」為基準各自校正，
+    // 數字代表「拖過整個螢幕寬/高」大約會轉多少度（總視角範圍是左右各180°、上下各70°）
+    const LOOK_DEG_PER_FULL_WIDTH = 110;
+    const LOOK_DEG_PER_FULL_HEIGHT = 90;
+    function addLookDelta(dx, dy) {
+      const sx = (LOOK_DEG_PER_FULL_WIDTH / 180) / window.innerWidth;
+      const sy = (LOOK_DEG_PER_FULL_HEIGHT / 180) / window.innerHeight;
+      state.mouseTarget.x = Math.max(-1, Math.min(1, state.mouseTarget.x + dx * sx));
+      state.mouseTarget.y = Math.max(-1, Math.min(1, state.mouseTarget.y - dy * sy));
+      if (!lookLabel.dataset.seen) {
+        lookLabel.dataset.seen = '1';
+        lookLabel.classList.remove('idle'); // 使用者已經學會了，淡出提示
+      }
+    }
 
-    /* ── 滑鼠（桌面）─────────────────────────────────────────── */
-    window.addEventListener('mousemove', e => setLookFromClient(e.clientX, e.clientY));
+    /* ── 滑鼠（桌面）：游標位置對應視角目標值、滾輪前進後退 ── */
+    window.addEventListener('mousemove', e => {
+      state.mouseTarget.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+    });
     window.addEventListener('wheel', e => { state.targetZ += e.deltaY * .018; }, { passive: true });
     window.addEventListener('click', triggerFlash);
 
-    /* ── 觸控（手機/平板）───────────────────────────────────────
-       單指拖曳／點按 = 環顧視角（沿用滑鼠位置->視角的邏輯）
-       雙指開合       = 前進／後退（取代滾輪）
-       輕點（無位移）  = 觸發 flash 壓力脈衝                     */
-    let touchStartTime = 0;
-    let touchMoved = false;
-    let lastPinchDist = null;
-
-    function pinchDist(touches) {
-      const dx = touches[0].clientX - touches[1].clientX;
-      const dy = touches[0].clientY - touches[1].clientY;
-      return Math.hypot(dx, dy);
+    /* ── 手機：搖桿常駐顯示在左下角（idle），讓使用者一眼就看到怎麼按 ──
+       抓取時跳到手指位置、變亮；鬆開後淡回原本 idle 位置與透明度        */
+    const JOY_IDLE_MARGIN = 78;
+    function joyIdlePos() {
+      return { x: JOY_IDLE_MARGIN, y: window.innerHeight - JOY_IDLE_MARGIN };
+    }
+    function placeJoy(x, y) {
+      joyBase.style.left = x + 'px';
+      joyBase.style.top = y + 'px';
+      joyKnob.style.left = x + 'px';
+      joyKnob.style.top = y + 'px';
+      joyLabel.style.left = (x - 30) + 'px';
+      joyLabel.style.top = (y + 50) + 'px';
+    }
+    function showJoyIdle() {
+      const p = joyIdlePos();
+      placeJoy(p.x, p.y);
+      joyBase.classList.add('idle');
+      joyKnob.classList.add('idle');
+      joyLabel.classList.add('idle');
+    }
+    if (isTouch) {
+      showJoyIdle();
+      lookLabel.classList.add('idle');
+      window.addEventListener('resize', () => { if (state.moveInput === 0) showJoyIdle(); });
     }
 
+    /* ── 手機首次進入的操作教學：點一下畫面（任何位置）就消失 ── */
+    if (isTouch) {
+      tutorial.style.display = 'flex';
+      const dismissTutorial = () => tutorial.classList.add('hide');
+      window.addEventListener('touchstart', dismissTutorial, { once: true, passive: true });
+      setTimeout(dismissTutorial, 6000); // 保險：沒點畫面 6 秒後也會自動淡出
+    } else {
+      tutorial.style.display = 'none';
+    }
+
+    /* ── 觸控（手機/平板）：仿第一人稱遊戲的雙區操作 ──────────────
+       畫面左半 = 虛擬搖桿：按住往上/下推 = 前進／後退，放開自動停下、回到idle位置
+       畫面右半 = 拖曳環顧：用「拖曳位移量」累加視角角度，鬆開後視角停在原地
+                  （不會像滑鼠一樣瞬間貼齊手指位置，這才是玩家熟悉的轉頭手感）
+       任一手指輕點（幾乎無位移、時間短）= 觸發壓力脈衝                        */
+    const activeTouches = new Map(); // identifier -> touch tracking info
+    const JOY_MAX_R = 42;
+
+    function zoneOf(x) { return x < window.innerWidth / 2 ? 'move' : 'look'; }
+
     window.addEventListener('touchstart', e => {
-      touchStartTime = performance.now();
-      touchMoved = false;
-      if (e.touches.length === 1) {
-        setLookFromClient(e.touches[0].clientX, e.touches[0].clientY);
-      } else if (e.touches.length === 2) {
-        lastPinchDist = pinchDist(e.touches);
+      for (const t of e.changedTouches) {
+        const zone = zoneOf(t.clientX);
+        activeTouches.set(t.identifier, {
+          zone, startX: t.clientX, startY: t.clientY,
+          startTime: performance.now(), moved: false,
+          lastX: t.clientX, lastY: t.clientY,
+        });
+        if (zone === 'move') {
+          placeJoy(t.clientX, t.clientY);
+          joyBase.classList.remove('idle');
+          joyKnob.classList.remove('idle');
+          joyLabel.classList.remove('idle');
+          joyBase.classList.add('active');
+          joyKnob.classList.add('active');
+        }
       }
     }, { passive: true });
 
     window.addEventListener('touchmove', e => {
-      touchMoved = true;
-      if (e.touches.length === 1) {
-        setLookFromClient(e.touches[0].clientX, e.touches[0].clientY);
-      } else if (e.touches.length === 2) {
-        const dist = pinchDist(e.touches);
-        if (lastPinchDist != null) {
-          state.targetZ += (lastPinchDist - dist) * .04;
+      for (const t of e.changedTouches) {
+        const info = activeTouches.get(t.identifier);
+        if (!info) continue;
+        const dx = t.clientX - info.lastX;
+        const dy = t.clientY - info.lastY;
+        if (Math.hypot(t.clientX - info.startX, t.clientY - info.startY) > 6) info.moved = true;
+
+        if (info.zone === 'move') {
+          let ox = t.clientX - info.startX;
+          let oy = t.clientY - info.startY;
+          const d = Math.hypot(ox, oy);
+          if (d > JOY_MAX_R) { ox = ox / d * JOY_MAX_R; oy = oy / d * JOY_MAX_R; }
+          joyKnob.style.left = (info.startX + ox) + 'px';
+          joyKnob.style.top = (info.startY + oy) + 'px';
+          state.moveInput = -oy / JOY_MAX_R; // 往上推 = 前進
+        } else {
+          addLookDelta(dx, dy);
         }
-        lastPinchDist = dist;
+        info.lastX = t.clientX; info.lastY = t.clientY;
       }
     }, { passive: true });
 
-    window.addEventListener('touchend', e => {
-      e.preventDefault(); // 避免瀏覽器補送 synthetic click 造成 flash 觸發兩次
-      lastPinchDist = null;
-      const dt = performance.now() - touchStartTime;
-      if (!touchMoved && dt < 300) triggerFlash();
-    }, { passive: false });
+    function endTouch(e) {
+      for (const t of e.changedTouches) {
+        const info = activeTouches.get(t.identifier);
+        if (!info) continue;
+        if (info.zone === 'move') {
+          state.moveInput = 0;
+          joyBase.classList.remove('active');
+          joyKnob.classList.remove('active');
+          if (isTouch) showJoyIdle(); // 鬆手後淡回常駐的 idle 位置，而不是整個消失
+        }
+        const dt = performance.now() - info.startTime;
+        if (!info.moved && dt < 300) triggerFlash();
+        activeTouches.delete(t.identifier);
+      }
+    }
+    window.addEventListener('touchend', e => { e.preventDefault(); endTouch(e); }, { passive: false });
+    window.addEventListener('touchcancel', endTouch, { passive: true });
 
     /* ════════════════════════════════════════════════════════════
        FRAGMENT SHADER — Mirror Hall Environment Integration
@@ -551,10 +784,17 @@ void main(){
     const sNeural = document.getElementById('s-neural');
     const sPress = document.getElementById('s-press');
 
+    let lastFrameMs = performance.now();
     function animate() {
       requestAnimationFrame(animate);
-      const now = performance.now() * .001;
-      state.currentZ += (state.targetZ - state.currentZ) * .07;
+      const nowMs = performance.now();
+      const dt = Math.min(.05, (nowMs - lastFrameMs) / 1000); // 秒，clamp避免分頁切走後跳一大格
+      lastFrameMs = nowMs;
+      const now = nowMs * .001;
+      state.targetZ += state.moveInput * 2.4 * dt; // 搖桿持續前進/後退（依dt而非幀數，速度與裝置更新率無關）
+      state.currentZ = smoothTo(state.currentZ, state.targetZ, 6, dt);
+      state.mouse.x = smoothTo(state.mouse.x, state.mouseTarget.x, 10, dt); // 視角平滑：不會因單一觸控樣本雜訊瞬間跳動
+      state.mouse.y = smoothTo(state.mouse.y, state.mouseTarget.y, 10, dt);
       mat.uniforms.uTime.value = now;
       mat.uniforms.uMouse.value.copy(state.mouse);
       mat.uniforms.uCameraZ.value = state.currentZ;
