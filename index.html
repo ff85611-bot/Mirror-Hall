@@ -1,481 +1,572 @@
 <!DOCTYPE html>
 <html lang="zh">
+
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
-  <title>意識深淵 — 鏡廊</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>Neural Abyss — Mirror Hall</title>
   <style>
-    *{margin:0;padding:0;box-sizing:border-box;}
-    html,body{height:100%;overscroll-behavior:none;}
-    body{overflow:hidden;background:#000;cursor:none;touch-action:none;
-         -webkit-user-select:none;user-select:none;
-         -webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-    /* ── HUD ── */
-    #hud{position:fixed;inset:0;pointer-events:none;z-index:100;
-         font-family:'Courier New',monospace;}
-    #panel{
-      position:absolute;
-      top:calc(28px + env(safe-area-inset-top,0px));
-      left:calc(28px + env(safe-area-inset-left,0px));
-      color:#aa1a00;font-size:11px;letter-spacing:2px;line-height:2.5;
-      text-shadow:0 0 10px #ff0000aa;max-width:62vw;
+    html, body {
+      height: 100%;
+      overscroll-behavior: none;
     }
-    .row{display:flex;gap:12px;align-items:baseline;}
-    /* 標籤：固定寬讓數值欄對齊 */
-    .lbl{color:#3d0800;min-width:4.8em;flex-shrink:0;}
-    .val{color:#ff3300;}
-    .sep{color:#3d0800;opacity:.5;}
-    .dv{width:200px;height:1px;background:linear-gradient(90deg,#550800,transparent);margin:5px 0;}
 
-    #hint{
-      position:absolute;
-      bottom:calc(28px + env(safe-area-inset-bottom,0px));
-      right:calc(28px + env(safe-area-inset-right,0px));
-      color:#2a0500;font-size:8px;letter-spacing:2.5px;
-      text-align:right;line-height:2.2;
+    body {
+      overflow: hidden;
+      background: #000;
+      cursor: none;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
     }
-    #flash{position:fixed;inset:0;
-           background:radial-gradient(circle at center,rgba(180,20,0,.22) 0%,transparent 70%);
-           opacity:0;pointer-events:none;transition:opacity .05s;}
-    #flash.active{opacity:1;transition:none;}
 
-    /* ── 十字準心 ── */
-    #xhair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-           width:24px;height:24px;}
-    #xhair::before,#xhair::after{content:'';position:absolute;background:rgba(200,30,0,.40);}
-    #xhair::before{width:1px;height:24px;left:11px;top:0;}
-    #xhair::after{width:24px;height:1px;top:11px;left:0;}
-    #xhair-ring{position:absolute;top:50%;left:50%;
-        transform:translate(-50%,-50%);width:8px;height:8px;
-        border:1px solid rgba(200,30,0,.38);border-radius:50%;
-        animation:pr 2.2s ease-in-out infinite;}
-    @keyframes pr{
-      0%,100%{transform:translate(-50%,-50%) scale(1);opacity:.5;}
-      50%{transform:translate(-50%,-50%) scale(1.9);opacity:.07;}}
+    #hud { 
+      position: fixed; 
+      inset: 0; 
+      pointer-events: none; 
+      z-index: 100; 
+      font-family: "Courier New", "Chalkboard SE", "Microsoft JhengHei", monospace; 
+    }
+    #panel { 
+      position: absolute; 
+      top: calc(28px + env(safe-area-inset-top, 0px)); 
+      left: calc(28px + env(safe-area-inset-left, 0px)); 
+      color: #aa1a00; 
+      font-size: 11px;
+      letter-spacing: 2px; 
+      line-height: 2.4; 
+      text-shadow: 0 0 12px #ff0000aa; 
+      max-width: 60vw;
+    }
 
-    /* ── 虛擬搖桿（左半螢幕）── */
-    #joy-base{
-      position:fixed;width:96px;height:96px;
-      margin:-48px 0 0 -48px;
-      border:1.5px solid rgba(200,30,0,.30);border-radius:50%;
-      background:radial-gradient(circle,rgba(80,0,0,.18),transparent 70%);
-      box-shadow:0 0 22px rgba(255,0,0,.08) inset;
-      opacity:0;transition:opacity .28s ease,left .18s ease,top .18s ease;
-      pointer-events:none;z-index:20;
+    .row {
+      display: flex;
+      gap: 10px;
     }
-    /* 上下箭頭標示方向 */
-    #joy-base::before,#joy-base::after{
-      content:'';position:absolute;left:50%;transform:translateX(-50%);
-      width:0;height:0;border-style:solid;
-    }
-    #joy-base::before{/* 上箭頭 */
-      top:8px;
-      border-width:0 7px 10px 7px;
-      border-color:transparent transparent rgba(255,60,20,.42) transparent;
-    }
-    #joy-base::after{/* 下箭頭 */
-      bottom:8px;
-      border-width:10px 7px 0 7px;
-      border-color:rgba(255,60,20,.42) transparent transparent transparent;
-    }
-    #joy-knob{
-      position:fixed;width:36px;height:36px;margin:-18px 0 0 -18px;
-      border-radius:50%;
-      background:radial-gradient(circle,rgba(255,60,0,.45),rgba(120,10,0,.10));
-      border:1.5px solid rgba(255,80,0,.60);
-      box-shadow:0 0 14px rgba(255,30,0,.35);
-      opacity:0;transition:opacity .28s ease,left .18s ease,top .18s ease;
-      pointer-events:none;z-index:21;
-    }
-    #joy-base.idle,#joy-knob.idle{opacity:.38;}
-    #joy-base.active,#joy-knob.active{opacity:1;transition:opacity .05s,left 0s,top 0s;}
 
-    /* 速度環：旋轉弧線反映當前移動速度 */
-    #speed-ring{
-      position:fixed;width:96px;height:96px;margin:-48px 0 0 -48px;
-      border-radius:50%;pointer-events:none;z-index:19;
-      opacity:0;transition:opacity .28s ease,left .18s ease,top .18s ease;
+    .lbl {
+      color: #3d0800;
     }
-    #speed-ring.active{opacity:1;transition:opacity .05s,left 0s,top 0s;}
-    #speed-ring svg{width:100%;height:100%;}
 
-    /* 搖桿標籤 */
-    #joy-label{
-      position:fixed;color:rgba(200,60,30,.48);font-size:8px;
-      letter-spacing:3px;white-space:nowrap;opacity:0;
-      transition:opacity .3s ease;z-index:20;
-      font-family:'Courier New',monospace;
+    .val {
+      color: #ff3300;
     }
-    #joy-label.idle{opacity:1;}
 
-    /* 右側視角提示標籤 */
-    #look-label{
-      position:fixed;top:50%;right:20px;transform:translateY(-50%);
-      color:rgba(200,60,30,.45);font-size:8px;letter-spacing:3px;
-      writing-mode:vertical-rl;opacity:0;transition:opacity .5s ease;
-      z-index:20;pointer-events:none;font-family:'Courier New',monospace;
+    .div-line {
+      width: 220px;
+      height: 1px;
+      background: linear-gradient(90deg, #3d0800, transparent);
+      margin: 6px 0;
     }
-    #look-label.idle{opacity:1;}
 
-    /* ── 首次教學遮罩 ── */
-    #tutorial{
-      position:fixed;inset:0;display:none;flex-direction:column;
-      align-items:center;justify-content:center;gap:24px;
-      background:rgba(0,0,0,.82);z-index:40;
-      opacity:1;pointer-events:none;transition:opacity .4s ease;
+    #hint {
+      position: absolute;
+      bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+      right: calc(28px + env(safe-area-inset-right, 0px));
+      color: #330700;
+      font-size: 9px;
+      letter-spacing: 2px;
+      text-align: right;
+      line-height: 2;
     }
-    #tutorial.hide{opacity:0;}
-    .tut-row{display:flex;align-items:center;gap:18px;
-             color:#c06040;font-size:13px;letter-spacing:2px;
-             font-family:'Courier New',monospace;}
-    .tut-icon{width:34px;text-align:center;font-size:22px;
-              color:#ff3300;text-shadow:0 0 12px rgba(255,0,0,.55);}
-    .tut-sub{margin-top:8px;font-size:9px;letter-spacing:3px;
-             color:rgba(180,90,60,.55);font-family:'Courier New',monospace;}
-    .tut-title{font-size:11px;letter-spacing:4px;color:rgba(200,80,50,.6);
-               margin-bottom:4px;font-family:'Courier New',monospace;}
 
-    /* ── 手機窄螢幕微調 ── */
-    @media(max-width:480px){
-      #panel{
-        top:calc(14px + env(safe-area-inset-top,0px));
-        left:calc(14px + env(safe-area-inset-left,0px));
-        font-size:9px;line-height:2.2;max-width:70vw;letter-spacing:1.5px;
+    /* ── 手機窄螢幕：縮小字級與邊距，避免版面爆版 ── */
+    @media (max-width: 480px) {
+      #panel {
+        top: calc(14px + env(safe-area-inset-top, 0px));
+        left: calc(14px + env(safe-area-inset-left, 0px));
+        font-size: 9px;
+        line-height: 2.1;
+        max-width: 68vw;
       }
-      .lbl{min-width:4.2em;}
-      .dv{width:148px;}
-      #hint{
-        bottom:calc(14px + env(safe-area-inset-bottom,0px));
-        right:calc(14px + env(safe-area-inset-right,0px));
-        font-size:7px;
+      .div-line { width: 150px; }
+      #hint {
+        bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+        right: calc(14px + env(safe-area-inset-right, 0px));
+        font-size: 7px;
+      }
+    }
+
+    #flash {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(180, 20, 0, .22) 0%, transparent 70%);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .05s;
+    }
+
+    #flash.active {
+      opacity: 1;
+      transition: none;
+    }
+
+    /* ── 手機虛擬搖桿（左半螢幕按住＝前進/後退）──
+       idle：頁面載入後就以低透明度常駐顯示在左下角，讓使用者「看得到」該往哪按
+       active：手指按下後跳到手指位置、變亮，鬆開回到 idle 位置與透明度        */
+    #joy-base {
+      position: fixed;
+      width: 84px;
+      height: 84px;
+      margin: -42px 0 0 -42px;
+      border: 1px solid rgba(200, 30, 0, .35);
+      border-radius: 50%;
+      box-shadow: 0 0 16px rgba(255, 0, 0, .12) inset;
+      opacity: 0;
+      transition: opacity .25s ease, left .2s ease, top .2s ease;
+      pointer-events: none;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px;
+    }
+
+    #joy-base .chevron {
+      color: rgba(255, 60, 20, .55);
+      font-size: 11px;
+      width: 100%;
+      text-align: center;
+    }
+
+    #joy-base .chevron.up { position: absolute; top: 4px; left: 0; }
+    #joy-base .chevron.down { position: absolute; bottom: 4px; left: 0; }
+
+    #joy-knob {
+      position: fixed;
+      width: 32px;
+      height: 32px;
+      margin: -16px 0 0 -16px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 50, 0, .38), rgba(120, 10, 0, .06));
+      border: 1px solid rgba(255, 70, 0, .55);
+      opacity: 0;
+      transition: opacity .25s ease, left .2s ease, top .2s ease;
+      pointer-events: none;
+      z-index: 21;
+    }
+
+    #joy-base.idle,
+    #joy-knob.idle {
+      opacity: .4;
+    }
+
+    #joy-base.active,
+    #joy-knob.active {
+      opacity: 1;
+      transition: none;
+    }
+
+    #joy-label {
+      position: fixed;
+      color: rgba(200, 60, 30, .5);
+      font-size: 9px;
+      letter-spacing: 3px;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity .3s ease;
+      z-index: 20;
+    }
+
+    #joy-label.idle { opacity: 1; }
+
+    #look-label {
+      position: fixed;
+      top: 50%;
+      right: 22px;
+      transform: translateY(-50%);
+      color: rgba(200, 60, 30, .5);
+      font-size: 9px;
+      letter-spacing: 3px;
+      writing-mode: vertical-rl;
+      opacity: 0;
+      transition: opacity .5s ease;
+      z-index: 20;
+      pointer-events: none;
+    }
+
+    #look-label.idle { opacity: 1; }
+
+    /* ── 手機首次進入的操作教學（僅觸控裝置顯示，點一下畫面即消失）── */
+    #tutorial {
+      position: fixed;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      background: rgba(0, 0, 0, .78);
+      z-index: 40;
+      opacity: 1;
+      pointer-events: none;
+      transition: opacity .4s ease;
+    }
+
+    #tutorial.hide { opacity: 0; }
+
+    .tut-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      color: #c9603a;
+      font-size: 12px;
+      letter-spacing: 2px;
+    }
+
+    .tut-icon {
+      width: 30px;
+      text-align: center;
+      font-size: 18px;
+      color: #ff3300;
+      text-shadow: 0 0 10px rgba(255, 0, 0, .55);
+    }
+
+    .tut-sub {
+      margin-top: 6px;
+      font-size: 9px;
+      letter-spacing: 3px;
+      color: rgba(180, 90, 60, .6);
+    }
+
+    #xhair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 24px;
+      height: 24px;
+    }
+
+    #xhair::before,
+    #xhair::after {
+      content: '';
+      position: absolute;
+      background: rgba(200, 30, 0, .45);
+    }
+
+    #xhair::before {
+      width: 1px;
+      height: 24px;
+      left: 11px;
+      top: 0;
+    }
+
+    #xhair::after {
+      width: 24px;
+      height: 1px;
+      top: 11px;
+      left: 0;
+    }
+
+    #xhair-ring {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 8px;
+      height: 8px;
+      border: 1px solid rgba(200, 30, 0, .4);
+      border-radius: 50%;
+      animation: pr 2.2s ease-in-out infinite;
+    }
+
+    @keyframes pr {
+
+      0%,
+      100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: .5;
+      }
+
+      50% {
+        transform: translate(-50%, -50%) scale(1.8);
+        opacity: .08;
       }
     }
   </style>
 </head>
+
 <body>
-
-<!-- HUD -->
-<div id="hud">
-  <div id="panel">
-    <div class="row">
-      <span class="lbl">有機載體</span>
-      <span class="sep">::</span>
-      <span class="val" id="s-status">搏動</span>
+  <div id="hud">
+    <div id="panel">
+      <div class="row"><span class="lbl">有機載體</span><span class="val" id="s-status">搏動</span></div>
+      <div class="row"><span class="lbl">閾界深度</span><span class="val" id="s-depth">0.00</span><span class="lbl">μm</span></div>
+      <div class="row"><span class="lbl">擬神經叢</span><span class="val" id="s-neural">微瀾</span></div>
+      <div class="row"><span class="lbl">流體內壓</span><span class="val" id="s-press">48.33</span><span class="lbl">kPa</span></div>
+      <div class="div-line"></div>
+      <div class="row"><span class="lbl">軸向推移</span><span class="val">:: 潛巡造訪</span></div>
+      <div class="row"><span class="lbl">視域尋跡</span><span class="val">:: 窺伺虛空</span></div>
+      <div class="row"><span class="lbl">瞬時干涉</span><span class="val">:: 釋放壓力脈衝</span></div>
     </div>
-    <div class="row">
-      <span class="lbl">閾界深度</span>
-      <span class="sep">::</span>
-      <span class="val" id="s-depth">0.00</span>
-      <span class="lbl" style="min-width:0;color:#1f0400;font-size:.8em;">μm</span>
+    <div id="hint">意識深淵<br>鏡廊架構引擎<br>界域映射全整合</div>
+    <div id="xhair"><div id="xhair-ring"></div></div>
+    <div id="joy-base">
+      <span class="chevron up">▲</span>
+      <span class="chevron down">▼</span>
     </div>
-    <div class="row">
-      <span class="lbl">擬神經叢</span>
-      <span class="sep">::</span>
-      <span class="val" id="s-neural">微瀾</span>
-    </div>
-    <div class="row">
-      <span class="lbl">流體內壓</span>
-      <span class="sep">::</span>
-      <span class="val" id="s-press">48.33</span>
-      <span class="lbl" style="min-width:0;color:#1f0400;font-size:.8em;">kPa</span>
-    </div>
-    <div class="dv"></div>
-    <div class="row" style="font-size:.85em;line-height:1.8;">
-      <span class="lbl">速度</span>
-      <span class="sep">::</span>
-      <span class="val" id="s-speed">靜止</span>
-    </div>
+    <div id="joy-knob"></div>
+    <div id="joy-label">前進 · 後退</div>
+    <div id="look-label">拖曳環顧四周</div>
   </div>
-  <div id="hint">意識深淵<br>鏡廊架構引擎<br>界域映射全整合</div>
-  <div id="xhair"><div id="xhair-ring"></div></div>
 
-  <!-- 搖桿元素 -->
-  <div id="joy-base"></div>
-  <div id="joy-knob"></div>
-  <div id="speed-ring">
-    <svg viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle id="speed-arc" cx="48" cy="48" r="44"
-        stroke="rgba(255,60,0,.65)" stroke-width="2.5"
-        stroke-linecap="round" fill="none"
-        stroke-dasharray="276.46" stroke-dashoffset="276.46"
-        transform="rotate(-90 48 48)"/>
-    </svg>
+  <div id="tutorial">
+    <div class="tut-row"><span class="tut-icon">⇅</span><span>畫面左側按住拖曳：前進／後退</span></div>
+    <div class="tut-row"><span class="tut-icon">⇄</span><span>畫面右側拖曳：環顧四周</span></div>
+    <div class="tut-row"><span class="tut-icon">●</span><span>輕點畫面：釋放壓力脈衝</span></div>
+    <div class="tut-sub">輕觸畫面開始</div>
   </div>
-  <div id="joy-label">前進 · 後退</div>
-  <div id="look-label">拖曳環顧</div>
-</div>
+  <div id="flash"></div>
 
-<!-- 教學遮罩 -->
-<div id="tutorial">
-  <div class="tut-title">— 操作說明 —</div>
-  <div class="tut-row">
-    <span class="tut-icon">⇅</span>
-    <span>左側按住拖曳<br><span style="font-size:.8em;color:rgba(180,90,60,.6);">往上推 = 前進 &nbsp;|&nbsp; 往下拉 = 後退</span></span>
-  </div>
-  <div class="tut-row">
-    <span class="tut-icon">⇄</span>
-    <span>右側拖曳環顧<br><span style="font-size:.8em;color:rgba(180,90,60,.6);">支援 360° 旋轉視角</span></span>
-  </div>
-  <div class="tut-row">
-    <span class="tut-icon">●</span>
-    <span>輕點釋放壓力脈衝</span>
-  </div>
-  <div class="tut-sub">輕觸任意處開始</div>
-</div>
+  <script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
 
-<div id="flash"></div>
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    // 手機（觸控裝置）GPU較弱，這個shader每個像素要跑95次光線步進，
+    // 全解析度容易掉幀、發燙、讓觸控回饋看起來「卡卡的不直覺」，故降低內部解析度
+    const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isCoarsePointer ? 0.75 : 1.0));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
+    /* ── Load env texture from external file (keep env.jpg next to this HTML) ── */
+    const envTex = new THREE.TextureLoader().load('env.jpg');
+    envTex.wrapS = envTex.wrapT = THREE.RepeatWrapping;
+    envTex.minFilter = THREE.LinearMipmapLinearFilter;
 
-<script type="module">
-import * as THREE from 'three';
+    const state = {
+      mouse: new THREE.Vector2(0, 0),       // 實際餵給 shader 的「平滑後」視角值
+      mouseTarget: new THREE.Vector2(0, 0), // 輸入（滑鼠/拖曳）直接改的是這個「目標值」
+      targetZ: 0, currentZ: 0,
+      clickTime: -999.0,
+      moveInput: 0, // -1..1，搖桿的前後分量，每一幀持續累加到 targetZ（放開自動歸零）
+    };
+    const flash = document.getElementById('flash');
+    const joyBase = document.getElementById('joy-base');
+    const joyKnob = document.getElementById('joy-knob');
+    const joyLabel = document.getElementById('joy-label');
+    const lookLabel = document.getElementById('look-label');
+    const tutorial = document.getElementById('tutorial');
+    const isTouch = window.matchMedia('(pointer: coarse)').matches;
 
-/* ── ① Renderer ─────────────────────────────────────────────
-   DPR 策略：
-   ‧ 桌面限 1.5  → 比原生 Retina(2.0) 少 44% 像素，肉眼幾乎看不出差異
-   ‧ 手機限 1.0  → 手機 GPU 弱，shader 每 pixel 跑 64 步，不能放寬
-   antialias 保持開啟：成本遠低於提高 DPR，邊緣仍平滑               */
-const isTouch = window.matchMedia('(pointer:coarse)').matches;
-const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, isTouch ? 1.0 : 1.5));
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
-const scene  = new THREE.Scene();
-const camera = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+    // 每幀往目標值平滑逼近（用 dt 計算，跟畫面更新率無關），
+    // 這樣視角不會因為單一個觸控樣本的雜訊而瞬間「跳掉」，手感才會像 POOLS 那樣穩定不晃
+    function smoothTo(current, target, rate, dt) {
+      const t = 1 - Math.exp(-rate * dt);
+      return current + (target - current) * t;
+    }
 
-/* ── ② Texture（內嵌，不需外部檔案）────────────────────────── */
-const envTex = new THREE.TextureLoader().load('052218.jpg');
-envTex.wrapS = envTex.wrapT = THREE.RepeatWrapping;
-envTex.minFilter = THREE.LinearMipmapLinearFilter;
+    function triggerFlash() {
+      state.clickTime = performance.now() * .001;
+      flash.classList.add('active');
+      setTimeout(() => flash.classList.remove('active'), 80);
+    }
+    // 拖曳靈敏度：橫向以「螢幕寬度」、縱向以「螢幕高度」為基準各自校正，
+    // 數字代表「拖過整個螢幕寬/高」大約會轉多少度（總視角範圍是左右各180°、上下各70°）
+    const LOOK_DEG_PER_FULL_WIDTH = 110;
+    const LOOK_DEG_PER_FULL_HEIGHT = 90;
+    function addLookDelta(dx, dy) {
+      const sx = (LOOK_DEG_PER_FULL_WIDTH / 180) / window.innerWidth;
+      const sy = (LOOK_DEG_PER_FULL_HEIGHT / 180) / window.innerHeight;
+      state.mouseTarget.x = Math.max(-1, Math.min(1, state.mouseTarget.x + dx * sx));
+      state.mouseTarget.y = Math.max(-1, Math.min(1, state.mouseTarget.y - dy * sy));
+      if (!lookLabel.dataset.seen) {
+        lookLabel.dataset.seen = '1';
+        lookLabel.classList.remove('idle'); // 使用者已經學會了，淡出提示
+      }
+    }
 
-/* ── State ──────────────────────────────────────────────────── */
-const state = {
-  mouse:       new THREE.Vector2(0,0),  /* 平滑後，實際送 shader */
-  mouseTarget: new THREE.Vector2(0,0),  /* 輸入直接寫這裡 */
-  targetZ:     0,
-  currentZ:    0,
-  clickTime:   -999.0,
-  moveInput:   0,          /* 搖桿分量 -1..1 */
-  moveVelocity:0,          /* 帶動量的速度（units/s） */
-};
-
-/* ── 速度環 DOM ─────────────────────────────────────────────── */
-const joyBase    = document.getElementById('joy-base');
-const joyKnob    = document.getElementById('joy-knob');
-const speedRing  = document.getElementById('speed-ring');
-const speedArc   = document.getElementById('speed-arc');
-const joyLabel   = document.getElementById('joy-label');
-const lookLabel  = document.getElementById('look-label');
-const tutorial   = document.getElementById('tutorial');
-const flash      = document.getElementById('flash');
-const ARC_CIRCUM = 276.46;  /* 2π×44 */
-
-/* ── 工具：指數平滑（與更新率無關）────────────────────────── */
-function smoothTo(cur, tar, rate, dt){
-  return cur + (tar-cur)*(1-Math.exp(-rate*dt));
-}
-
-/* ── 觸發壓力脈衝 ───────────────────────────────────────────── */
-function triggerFlash(){
-  state.clickTime = performance.now()*.001;
-  flash.classList.add('active');
-  setTimeout(()=>flash.classList.remove('active'),80);
-}
-
-/* ── 視角靈敏度：拖過整個螢幕寬/高所轉的角度 ──────────────── */
-const LOOK_H_DEG = 150;   /* 水平：150° / 全螢幕寬（比舊版 110° 更靈敏）*/
-const LOOK_V_DEG =  90;   /* 垂直 */
-function addLookDelta(dx, dy){
-  const sx = (LOOK_H_DEG/180) / window.innerWidth;
-  const sy = (LOOK_V_DEG/180) / window.innerHeight;
-  state.mouseTarget.x = Math.max(-1, Math.min(1, state.mouseTarget.x + dx*sx));
-  state.mouseTarget.y = Math.max(-1, Math.min(1, state.mouseTarget.y - dy*sy));
-  if (!lookLabel.dataset.seen){
-    lookLabel.dataset.seen='1';
-    lookLabel.classList.remove('idle');
-  }
-}
-
-/* ── 桌面：滑鼠移動 + 滾輪 ─────────────────────────────────── */
-let pendingMouse=false;
-window.addEventListener('mousemove',e=>{
-  if(pendingMouse)return;
-  pendingMouse=true;
-  requestAnimationFrame(()=>{
-    state.mouseTarget.set(
-      (e.clientX/window.innerWidth)*2-1,
-      -(e.clientY/window.innerHeight)*2+1);
-    pendingMouse=false;
-  });
-});
-window.addEventListener('wheel',e=>{ state.targetZ+=e.deltaY*.022; },{passive:true});
-window.addEventListener('click',triggerFlash);
-
-/* ── 搖桿 idle 位置（左下角）───────────────────────────────── */
-const JOY_MARGIN = 80;
-const JOY_MAX_R  = 44;
-const MAX_SPEED  = 10.0;   /* units/s（舊版等效約 2.4，這裡快 4× ）*/
-
-function joyIdlePos(){
-  return { x: JOY_MARGIN, y: window.innerHeight - JOY_MARGIN };
-}
-function placeJoy(x, y){
-  const s = `left:${x}px;top:${y}px;`;
-  joyBase.style.cssText   += `;left:${x}px;top:${y}px;`;
-  joyKnob.style.cssText   += `;left:${x}px;top:${y}px;`;
-  speedRing.style.cssText += `;left:${x}px;top:${y}px;`;
-  joyLabel.style.cssText  += `;left:${x-36}px;top:${y+54}px;`;
-}
-function showJoyIdle(){
-  const p = joyIdlePos();
-  placeJoy(p.x, p.y);
-  [joyBase,joyKnob,joyLabel].forEach(el=>{
-    el.classList.remove('active');
-    el.classList.add('idle');
-  });
-  speedRing.classList.remove('active');
-  speedArc.style.strokeDashoffset = ARC_CIRCUM;
-}
-if(isTouch){
-  showJoyIdle();
-  lookLabel.classList.add('idle');
-  window.addEventListener('resize',()=>{ if(!state.moveInput) showJoyIdle(); });
-}
-
-/* ── 教學遮罩 ────────────────────────────────────────────────── */
-if(isTouch){
-  tutorial.style.display='flex';
-  const dismiss = ()=>tutorial.classList.add('hide');
-  window.addEventListener('touchstart', dismiss, {once:true, passive:true});
-  setTimeout(dismiss, 6000);
-} else {
-  tutorial.style.display='none';
-}
-
-/* ── 觸控：雙區操作 ─────────────────────────────────────────── */
-const activeTouches = new Map();
-function zoneOf(x){ return x < window.innerWidth*0.48 ? 'move' : 'look'; }
-
-window.addEventListener('touchstart', e=>{
-  for(const t of e.changedTouches){
-    const zone = zoneOf(t.clientX);
-    activeTouches.set(t.identifier,{
-      zone, startX:t.clientX, startY:t.clientY,
-      startTime:performance.now(), moved:false,
-      lastX:t.clientX, lastY:t.clientY,
+    /* ── 滑鼠（桌面）：游標位置對應視角目標值、滾輪前進後退 ── */
+    window.addEventListener('mousemove', e => {
+      state.mouseTarget.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
     });
-    if(zone==='move'){
-      placeJoy(t.clientX, t.clientY);
-      [joyBase,joyKnob].forEach(el=>{el.classList.remove('idle');el.classList.add('active');});
-      joyLabel.classList.remove('idle');
-      speedRing.classList.add('active');
+    window.addEventListener('wheel', e => { state.targetZ += e.deltaY * .018; }, { passive: true });
+    window.addEventListener('click', triggerFlash);
+
+    /* ── 手機：搖桿常駐顯示在左下角（idle），讓使用者一眼就看到怎麼按 ──
+       抓取時跳到手指位置、變亮；鬆開後淡回原本 idle 位置與透明度        */
+    const JOY_IDLE_MARGIN = 78;
+    function joyIdlePos() {
+      return { x: JOY_IDLE_MARGIN, y: window.innerHeight - JOY_IDLE_MARGIN };
     }
-  }
-},{passive:true});
+    function placeJoy(x, y) {
+      joyBase.style.left = x + 'px';
+      joyBase.style.top = y + 'px';
+      joyKnob.style.left = x + 'px';
+      joyKnob.style.top = y + 'px';
+      joyLabel.style.left = (x - 30) + 'px';
+      joyLabel.style.top = (y + 50) + 'px';
+    }
+    function showJoyIdle() {
+      const p = joyIdlePos();
+      placeJoy(p.x, p.y);
+      joyBase.classList.add('idle');
+      joyKnob.classList.add('idle');
+      joyLabel.classList.add('idle');
+    }
+    if (isTouch) {
+      showJoyIdle();
+      lookLabel.classList.add('idle');
+      window.addEventListener('resize', () => { if (state.moveInput === 0) showJoyIdle(); });
+    }
 
-window.addEventListener('touchmove', e=>{
-  for(const t of e.changedTouches){
-    const info = activeTouches.get(t.identifier);
-    if(!info) continue;
-    const dx = t.clientX - info.lastX;
-    const dy = t.clientY - info.lastY;
-    if(Math.hypot(t.clientX-info.startX, t.clientY-info.startY)>6) info.moved=true;
-
-    if(info.zone==='move'){
-      let oy = t.clientY - info.startY;
-      const ox = t.clientX - info.startX;
-      const d = Math.hypot(ox, oy);
-      const clamped_oy = d>JOY_MAX_R ? (oy/d*JOY_MAX_R) : oy;
-      const clamped_ox = d>JOY_MAX_R ? (ox/d*JOY_MAX_R) : ox;
-      joyKnob.style.left = (info.startX + clamped_ox)+'px';
-      joyKnob.style.top  = (info.startY + clamped_oy)+'px';
-      /* 往上推（oy<0）= 前進；往下拉（oy>0）= 後退 */
-      state.moveInput = -clamped_oy / JOY_MAX_R;
-      /* 速度環弧度反映當前速度 */
-      const ratio = Math.abs(state.moveInput);
-      speedArc.style.strokeDashoffset = ARC_CIRCUM*(1-ratio);
+    /* ── 手機首次進入的操作教學：點一下畫面（任何位置）就消失 ── */
+    if (isTouch) {
+      tutorial.style.display = 'flex';
+      const dismissTutorial = () => tutorial.classList.add('hide');
+      window.addEventListener('touchstart', dismissTutorial, { once: true, passive: true });
+      setTimeout(dismissTutorial, 6000); // 保險：沒點畫面 6 秒後也會自動淡出
     } else {
-      addLookDelta(dx, dy);
+      tutorial.style.display = 'none';
     }
-    info.lastX=t.clientX; info.lastY=t.clientY;
-  }
-},{passive:true});
 
-function endTouch(e){
-  for(const t of e.changedTouches){
-    const info = activeTouches.get(t.identifier);
-    if(!info) continue;
-    if(info.zone==='move'){
-      state.moveInput=0;
-      if(isTouch) showJoyIdle();
+    /* ── 觸控（手機/平板）：仿第一人稱遊戲的雙區操作 ──────────────
+       畫面左半 = 虛擬搖桿：按住往上/下推 = 前進／後退，放開自動停下、回到idle位置
+       畫面右半 = 拖曳環顧：用「拖曳位移量」累加視角角度，鬆開後視角停在原地
+                  （不會像滑鼠一樣瞬間貼齊手指位置，這才是玩家熟悉的轉頭手感）
+       任一手指輕點（幾乎無位移、時間短）= 觸發壓力脈衝                        */
+    const activeTouches = new Map(); // identifier -> touch tracking info
+    const JOY_MAX_R = 42;
+
+    function zoneOf(x) { return x < window.innerWidth / 2 ? 'move' : 'look'; }
+
+    window.addEventListener('touchstart', e => {
+      for (const t of e.changedTouches) {
+        const zone = zoneOf(t.clientX);
+        activeTouches.set(t.identifier, {
+          zone, startX: t.clientX, startY: t.clientY,
+          startTime: performance.now(), moved: false,
+          lastX: t.clientX, lastY: t.clientY,
+        });
+        if (zone === 'move') {
+          placeJoy(t.clientX, t.clientY);
+          joyBase.classList.remove('idle');
+          joyKnob.classList.remove('idle');
+          joyLabel.classList.remove('idle');
+          joyBase.classList.add('active');
+          joyKnob.classList.add('active');
+        }
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchmove', e => {
+      for (const t of e.changedTouches) {
+        const info = activeTouches.get(t.identifier);
+        if (!info) continue;
+        const dx = t.clientX - info.lastX;
+        const dy = t.clientY - info.lastY;
+        if (Math.hypot(t.clientX - info.startX, t.clientY - info.startY) > 6) info.moved = true;
+
+        if (info.zone === 'move') {
+          let ox = t.clientX - info.startX;
+          let oy = t.clientY - info.startY;
+          const d = Math.hypot(ox, oy);
+          if (d > JOY_MAX_R) { ox = ox / d * JOY_MAX_R; oy = oy / d * JOY_MAX_R; }
+          joyKnob.style.left = (info.startX + ox) + 'px';
+          joyKnob.style.top = (info.startY + oy) + 'px';
+          state.moveInput = -oy / JOY_MAX_R; // 往上推 = 前進
+        } else {
+          addLookDelta(dx, dy);
+        }
+        info.lastX = t.clientX; info.lastY = t.clientY;
+      }
+    }, { passive: true });
+
+    function endTouch(e) {
+      for (const t of e.changedTouches) {
+        const info = activeTouches.get(t.identifier);
+        if (!info) continue;
+        if (info.zone === 'move') {
+          state.moveInput = 0;
+          joyBase.classList.remove('active');
+          joyKnob.classList.remove('active');
+          if (isTouch) showJoyIdle(); // 鬆手後淡回常駐的 idle 位置，而不是整個消失
+        }
+        const dt = performance.now() - info.startTime;
+        if (!info.moved && dt < 300) triggerFlash();
+        activeTouches.delete(t.identifier);
+      }
     }
-    const dt = performance.now()-info.startTime;
-    if(!info.moved && dt<280) triggerFlash();
-    activeTouches.delete(t.identifier);
-  }
-}
-window.addEventListener('touchend',  e=>{ e.preventDefault(); endTouch(e); },{passive:false});
-window.addEventListener('touchcancel', endTouch, {passive:true});
+    window.addEventListener('touchend', e => { e.preventDefault(); endTouch(e); }, { passive: false });
+    window.addEventListener('touchcancel', endTouch, { passive: true });
 
-/* ════════════════════════════════════════════════════════════════
-   FRAGMENT SHADER — 效能優化版
-   ① fBm 3階 → 2階       (-33% noise cost)
-   ② 射線步數 95 → 64    (-33% loop cost)；步長 0.52 → 0.62
-   ③ blobs/veins 3 → 2   (-33% inner loop)
-   ④ 法線：6-tap → 4-tap 四面體法
-   ⑤ AO 移除             (省2次 map()/pixel)
-   ⑥ shade() sampleEnv 去重複 (5→3次)
-   ════════════════════════════════════════════════════════════════ */
-const frag=`
+    /* ════════════════════════════════════════════════════════════
+       FRAGMENT SHADER — Mirror Hall Environment Integration
+    ════════════════════════════════════════════════════════════ */
+    const frag = `
 precision highp float;
-uniform float     uTime;
-uniform vec2      uResolution;
-uniform vec2      uMouse;
-uniform float     uCameraZ;
-uniform float     uClickTime;
-uniform sampler2D uEnvMap;
-varying vec2      vUv;
+uniform float      uTime;
+uniform vec2       uResolution;
+uniform vec2       uMouse;
+uniform float      uCameraZ;
+uniform float      uClickTime;
+uniform sampler2D  uEnvMap;
+varying vec2       vUv;
 
-#define PI  3.14159265
-#define TPI 6.28318530
+#define PI 3.14159265359
+#define TWO_PI 6.28318530718
 
-mat2 rot2(float a){float s=sin(a),c=cos(a);return mat2(c,-s,s,c);}
-float smin(float a,float b,float k){float h=clamp(.5+.5*(b-a)/k,0.,1.);return mix(b,a,h)-k*h*(1.-h);}
-float hash(float n){return fract(sin(n)*43758.5453);}
-float hash2(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
-float vn(vec3 p){
-  vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+/* ── MATH ─────────────────────────────────────────────────── */
+mat2 rot2(float a){ float s=sin(a),c=cos(a); return mat2(c,-s,s,c); }
+float smin(float a,float b,float k){ float h=clamp(.5+.5*(b-a)/k,0.,1.); return mix(b,a,h)-k*h*(1.-h); }
+
+/* ── NOISE ────────────────────────────────────────────────── */
+float hash(float n){ return fract(sin(n)*43758.5453); }
+float hash2(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+float vnoise(vec3 p){
+  vec3 i=floor(p),f=fract(p); f=f*f*(3.-2.*f);
   float n=i.x+i.y*57.+113.*i.z;
   return mix(mix(mix(hash(n),hash(n+1.),f.x),mix(hash(n+57.),hash(n+58.),f.x),f.y),
              mix(mix(hash(n+113.),hash(n+114.),f.x),mix(hash(n+170.),hash(n+171.),f.x),f.y),f.z);
 }
-/* ① 2 階 fBm（原 3 階，節省 33% noise 計算量）*/
-float fbm(vec3 p){return vn(p)*.62+vn(p*2.01)*.38;}
+float fbm(vec3 p){ return vnoise(p)*.5+vnoise(p*2.01)*.25+vnoise(p*4.03)*.125; }
 
-/* 球面等距環境貼圖取樣 */
+/* ── ENV MAP SAMPLING ─────────────────────────────────────── */
+/* Equirectangular spherical projection on direction vector d  */
 vec3 sampleEnv(vec3 d){
-  vec3 dn=normalize(d);
-  dn.xz*=rot2(uTime*.018);
-  float u=atan(dn.z,dn.x)/TPI+.5;
-  float v=acos(clamp(dn.y,-1.,1.))/PI;
-  return texture2D(uEnvMap,vec2(u,v)).rgb;
+  vec3 dn = normalize(d);
+  /* Slight time-driven rotation to animate reflections */
+  dn.xz *= rot2(uTime * 0.018);
+  float u = atan(dn.z, dn.x) / TWO_PI + 0.5;
+  float v = acos(clamp(dn.y, -1.0, 1.0)) / PI;
+  vec3 col = texture2D(uEnvMap, vec2(u, v)).rgb;
+  return col;
 }
 
-vec3 g_ro,g_fwd;
-float pulse(float t){return pow(max(0.,sin(t*2.18)),3.);}
+/* ── GLOBALS ──────────────────────────────────────────────── */
+vec3 g_ro, g_fwd;
+float pulse(float t){ return pow(max(0., sin(t*2.18)), 3.); }
 
-/* 滑鼠吸附 + 點擊波紋場 */
+/* ── MOUSE / CLICK FIELD ─────────────────────────────────── */
 float mouseField(vec3 p){
-  vec3 dp=p-g_ro;float pr=max(0.,dot(dp,g_fwd));float di=length(dp-g_fwd*pr);
-  float s=exp(-di*di*1.3)*.72;
-  float r=0.;float dt=uTime-uClickTime;
-  if(dt>0.&&dt<4.8){float f=dt*5.;float w=abs(di-f);
-    r=exp(-w*w*2.2)*exp(-dt*.9)*sin(di*5.5-dt*10.)*1.5;}
-  return s+r;
+  vec3  dp   = p - g_ro;
+  float proj = max(0., dot(dp, g_fwd));
+  float dist = length(dp - g_fwd*proj);
+  float suction = exp(-dist*dist*1.3)*0.72;
+  float ripple  = 0.;
+  float dt = uTime - uClickTime;
+  if(dt>0. && dt<4.8){
+    float front = dt*5.0;
+    float wd    = abs(dist-front);
+    ripple = exp(-wd*wd*2.2)*exp(-dt*.9)*sin(dist*5.5-dt*10.)*1.5;
+  }
+  return suction+ripple;
 }
 
-/* ② ③ SDF — 64 步 + 2 blobs + 2 veins */
+/* ── SDF ─────────────────────────────────────────────────── */
 float map(vec3 p){
   float t=uTime;
   float warp=fbm(vec3(p.xy*.14,p.z*.06+t*.045));
@@ -486,209 +577,244 @@ float map(vec3 p){
   float breathe=sin(t*1.28)*.38+sin(t*2.18+.75)*.19;
   float bump=fbm(vec3(tp.xy*.52,p.z*.13+t*.032))*.52;
 
-  float tunnelEnd=150.;
-  float openUp=smoothstep(tunnelEnd-30.,tunnelEnd,p.z);
-  float baseR=5.75+breathe+warp*.52+bump;
-  float tunnel=mix(baseR,100.,openUp)-length(tp.xy);
+  // ─── 關鍵機制：設定隧道的盡頭深度 ───
+  float tunnelEnd = 150.0; // 這是出口的深度座標，數值越小越快走到盡頭
+  // 當 p.z 進入 (tunnelEnd - 30.0) 到 tunnelEnd 的區間時，數值會從 0 平滑過渡到 1
+  float openUp = smoothstep(tunnelEnd - 30.0, tunnelEnd, p.z); 
 
-  float os=1.-openUp;
+  // 計算基礎管壁半徑，並在接近盡頭時，將半徑急遽放大到 100.0，形成「出口」
+  float baseRadius = 5.75+breathe+warp*.52+bump;
+  float finalRadius = mix(baseRadius, 100.0, openUp);
+  float tunnel = finalRadius - length(tp.xy);
+
+  // 讓內部的血管與障礙球體，隨著接近出口而逐漸萎縮消失
+  float obstacleScale = 1.0 - openUp;
+
   float blobs=99.;
-  for(int i=0;i<2;i++){   /* ③ 2個（原3個）*/
-    float fi=float(i),ph=fi*2.094;
+  for(int i=0;i<3;i++){
+    float fi=float(i), ph=fi*2.094;
     float lz=mod(p.z-fi*8.2,18.)-9.;
-    vec2 bxy=vec2(sin(p.z*.25+ph+t*.21)*1.85,cos(p.z*.19+ph+t*.17)*1.6);
-    blobs=smin(blobs,length(vec3(p.xy-bxy,lz))-((0.5+sin(t*1.55+ph)*.16)*os),1.15);
+    vec2 bxy=vec2(sin(p.z*.25+ph+t*.21)*1.85,cos(p.z*.19+ph+t*.17)*1.60);
+    // 乘上 obstacleScale，抵達盡頭時半徑歸零
+    float blobR = (0.50+sin(t*1.55+ph)*.16) * obstacleScale; 
+    blobs=smin(blobs, length(vec3(p.xy-bxy,lz))-blobR, 1.15);
   }
   float veins=99.;
-  for(int i=0;i<2;i++){   /* ③ 2條（原3條）*/
+  for(int i=0;i<3;i++){
     float fi=float(i);
     float ang=p.z*.10+fi*2.094+t*.036;
     vec2 vc=vec2(cos(ang),sin(ang))*4.35+vec2(sin(p.z*.18+fi)*.4,cos(p.z*.14+fi+1.)*.3);
-    veins=smin(veins,length(p.xy-vc)-((0.20+sin(t*1.85+fi*2.1+p.z*.25)*.065)*os),0.55);
+    // 同樣乘上 obstacleScale
+    float veinR = (0.20+sin(t*1.85+fi*2.1+p.z*.25)*.065) * obstacleScale;
+    veins=smin(veins, length(p.xy-vc)-veinR, 0.55);
   }
   return smin(smin(tunnel,blobs,1.45),veins,0.80)-mouseField(p);
 }
 
-/* ④ 四面體法線：4次 map()（原 6 次，節省 33%）*/
+/* ── NORMAL ───────────────────────────────────────────────── */
 vec3 calcNormal(vec3 p){
-  const float e=0.005;
-  const vec2 k=vec2(1.,-1.);
-  return normalize(
-    k.xyy*map(p+k.xyy*e)+k.yyx*map(p+k.yyx*e)+
-    k.yxy*map(p+k.yxy*e)+k.xxx*map(p+k.xxx*e));
+  const float e=0.004;
+  return normalize(vec3(
+    map(p+vec3(e,0,0))-map(p-vec3(e,0,0)),
+    map(p+vec3(0,e,0))-map(p-vec3(0,e,0)),
+    map(p+vec3(0,0,e))-map(p-vec3(0,0,e))));
 }
 
-/* ⑥ shade()：sampleEnv 從 5 次合併為 3 次；⑤ AO 移除 */
-vec3 shade(vec3 p,vec3 N,vec3 V,vec3 rd){
+/* ── SHADING — Environment-Integrated ────────────────────── */
+vec3 shade(vec3 p, vec3 N, vec3 V, vec3 rd, float depth){
   float t=uTime;
-  float cn1=fbm(p*.21),cn2=fbm(p*.46+vec3(3.1,7.4,2.2));
+
+  /* ── Organic surface colour ── */
+  float cn1=fbm(p*.21);
+  float cn2=fbm(p*.46+vec3(3.1,7.4,2.2));
+  float cn3=fbm(p*.9 +vec3(1.3,0.5,5.7));
   vec3 col=mix(vec3(.38,.01,.01),vec3(.10,.03,.20),cn1);
   col=mix(col,vec3(.04,.16,.03),cn2*.28);
   col+=vec3(.14,.0,.0)*pulse(t);
 
-  /* 反射（含黏液微擾）*/
-  vec3 R=normalize(reflect(rd,N));
-  R.xy+=vec2(fbm(p*.8+t*.18),fbm(p*.8+t*.18+vec3(5.)))*(0.06+0.04*sin(t*3.2+p.z*.8));
-  R=normalize(R);
+  /* ── Env-map reflection ── */
+  vec3 R = reflect(rd, N);
+  /* Add procedural micro-ripple to reflection vector (mucus shiver) */
+  float rippleMag = 0.06 + 0.04*sin(t*3.2 + p.z*.8);
+  R.xy += vec2(fbm(p*.8+t*.18), fbm(p*.8+t*.18+vec3(5.))) * rippleMag;
+  R = normalize(R);
+  vec3 envCol = sampleEnv(R);
 
-  /* ⑥ envCol：反射和 rim 共用，不重複取樣 */
-  vec3 envCol=sampleEnv(R);
-  envCol=mix(envCol,envCol*vec3(1.6,.4,.3),.6);
+  /* Redness tint: environment adopts the organic colour temperature */
+  envCol = mix(envCol, envCol * vec3(1.6, 0.4, 0.3), 0.6);
 
-  /* Fresnel (Schlick) */
-  float cosT=max(0.,dot(N,V));
-  float F=0.18+(1.-0.18)*pow(1.-cosT,4.)*(1.+cn1*.4);
+  /* ── Fresnel (Schlick) — controls how mirror-like the surface is ── */
+  float cosTheta = max(0., dot(N, V));
+  float F0       = 0.18;                       /* base reflectivity */
+  float fresnel  = F0 + (1.0-F0)*pow(1.0-cosTheta, 4.0);
+  /* Wet organic boost: veiny areas more reflective */
+  fresnel *= (1.0 + cn1*.4);
 
-  /* ⑥ 光源方向取樣（第2次 sampleEnv）*/
-  vec3 L=normalize(vec3(sin(t*.42)*2.,cos(t*.35),-1.25));
-  float NdL=max(0.,dot(N,-L));
-  vec3 envDiff=sampleEnv(-L)*1.4;
+  /* ── Direct lighting from env image (sample env at light dir) ── */
+  vec3 L = normalize(vec3(sin(t*.42)*2., cos(t*.35), -1.25));
+  float NdL = max(0., dot(N, -L));
+  /* Env-sampled diffuse: bleed the red corridor into the tissue */
+  vec3 envDiff = sampleEnv(-L) * 1.4;
 
-  float NdH=max(0.,dot(N,normalize(-L+V)));
-  vec3 spec=vec3(1.,.65,.5)*pow(NdH,90.)*3.5+vec3(.5,.1,.06)*pow(NdH,12.)*.9;
-  float sss=pow(max(0.,-dot(V,N)),5.5);
-  vec3 sssC=vec3(.7,.02,0.)*sss*.55;
+  /* ── Specular ── */
+  vec3  H    = normalize(-L + V);
+  float NdH  = max(0., dot(N, H));
+  vec3 specCol = vec3(1.,.65,.50)*pow(NdH,90.)*3.5
+               + vec3(.5,.1,.06)*pow(NdH,12.)*.9;
 
-  /* ⑥ rim 重用 envCol（不再第3次取樣）*/
-  float rim=pow(1.-cosT,4.2);
-  vec3 rimC=(vec3(.9,.18,.02)*.70+envCol*.25)*rim*(0.5+0.5*pulse(t));
+  /* ── Subsurface scattering ── */
+  float sss = pow(max(0., -dot(V, N)), 5.5);
+  vec3 sssCol = vec3(.70,.02,.0)*sss*.55;
 
-  vec3 diff=col*(envDiff*NdL*1.4+vec3(.04,.0,.01)*.3);
-  /* ⑤ AO 以固定 0.72 係數代替（省 2 次 map()，暗部仍有層次）*/
-  return (diff+sssC)*0.72+envCol*F*2.2+spec+rimC;
+  /* ── Rim ── */
+  float rim = pow(1.-max(0.,dot(N,V)), 4.2);
+  vec3 rimCol = vec3(.90,.18,.02)*rim*.70*(0.5+0.5*pulse(t));
+  /* Rim picks up env colour (red corridor edge glow) */
+  rimCol += sampleEnv(R)*rim*.25;
+
+  /* ── Ambient occlusion ── */
+  float ao = 0.3 + 0.7*(clamp(map(p+N*.35)/.35,0.,1.)*.6
+                       +clamp(map(p+N*.80)/.80,0.,1.)*.4);
+  ao = ao*ao;
+
+  /* ── Combine: diffuse + env reflection (Fresnel weighted) ── */
+  vec3 diffuse  = col * (envDiff * NdL * 1.4 + vec3(.04,.0,.01)*0.3);
+  vec3 reflect_ = envCol * fresnel * 2.2;
+
+  return (diffuse + reflect_ + sssCol)*ao + specCol + rimCol;
 }
 
+/* ── MAIN ─────────────────────────────────────────────────── */
 void main(){
-  vec2 uv=(vUv-.5)*2.;uv.x*=uResolution.x/uResolution.y;
-  vec3 ro=vec3(0.,0.,uCameraZ);g_ro=ro;
+  vec2 uv=(vUv-.5)*2.; uv.x*=uResolution.x/uResolution.y;
+
+  /* Camera */
+  vec3 ro=vec3(0.,0.,uCameraZ); g_ro=ro;
   vec3 rd=normalize(vec3(uv,1.3));
-  rd.xz*=rot2(uMouse.x*PI);
+  rd.xz*=rot2(uMouse.x*3.14159);
   rd.yz*=rot2(uMouse.y*1.22);
   g_fwd=vec3(0.,0.,1.);
-  g_fwd.xz*=rot2(uMouse.x*PI);
+  g_fwd.xz*=rot2(uMouse.x*3.14159);
   g_fwd.yz*=rot2(uMouse.y*1.22);
 
-  /* ② 64步，步長 0.62（原 95步 / 0.52）*/
-  float t=0.05;vec3 p;bool hit=false;
-  for(int i=0;i<64;i++){
+  /* ── Raymarch ── */
+  float t=0.05; vec3 p; bool hit=false;
+  for(int i=0;i<95;i++){
     p=ro+rd*t;
     float d=map(p);
-    if(abs(d)<0.0055){hit=true;break;}
-    if(t>60.)break;
-    t+=d*.62;
+    if(abs(d)<0.005){ hit=true; break; }
+    if(t>58.) break;
+    t+=d*.52;
   }
 
   vec3 color=vec3(0.);
+
   if(hit){
     vec3 N=calcNormal(p);
-    color=shade(p,N,-rd,rd);
-    /* ⑥ 霧氣方向取樣（第3次 sampleEnv，維持霧氣氛圍）*/
-    vec3 fogEnv=sampleEnv(rd)*.35;
-    color=mix(color,mix(vec3(.055,.0,.022),fogEnv,.55),1.-exp(-t*.042));
-    color*=.35+.65*smoothstep(.90,.05,length(vUv-.5)*2.);
-    color+=vec3(.55,.04,.02)*exp(-abs(map(p+N*.1))*8.)*.07*pulse(uTime);
+    color=shade(p,N,-rd,rd,t);
+
+    /* ── Organic fog mixed with env-image colour ── */
+    /* Sample env in the forward direction for fog tint */
+    vec3 fogEnv = sampleEnv(rd) * 0.35;
+    vec3 fogCol  = mix(vec3(.055,.0,.022), fogEnv, .55);
+    float fogAmt = 1.-exp(-t*.042);
+    color=mix(color, fogCol, fogAmt);
+
+    /* ── Vignette ── */
+    float vig=smoothstep(.90,.05,length(vUv-.5)*2.);
+    color*=.35+.65*vig;
+
+    /* ── Near-surface tissue glow ── */
+    float glow=exp(-abs(map(p+N*.1))*8.)*.07;
+    color+=vec3(.55,.04,.02)*glow*pulse(uTime);
+
   } else {
-    vec3 eb=sampleEnv(rd)*(1.-length(uv)*.28)*1.6;
-    eb+=vec3(.15,.01,0.)*pow(max(0.,dot(normalize(rd),g_fwd)),8.)*(0.6+0.4*pulse(uTime));
-    color=eb;
+    /* ── Sky: pure spherical env-map projection on rd ── */
+    vec3 envBg = sampleEnv(rd);
+    /* Darken towards edges for depth illusion */
+    float edgeDark = 1.0 - length(uv)*.28;
+    envBg *= edgeDark * 1.6;
+    /* Subtle pulsing heat-glow at the vanishing point */
+    float axialDot = max(0., dot(normalize(rd), g_fwd));
+    envBg += vec3(.15,.01,.0)*pow(axialDot, 8.0)*(0.6+0.4*pulse(uTime));
+    color = envBg;
   }
 
-  color+=(hash2(vUv+fract(uTime*.09))-.5)*.018;
+  /* ── Film grain ── */
+  color += (hash2(vUv+fract(uTime*.09))-.5)*.020;
+
+  /* ── ACES tone map ── */
   color=color*(2.51*color+.03)/(color*(2.43*color+.59)+.14);
   color=clamp(color,0.,1.);
+
+  /* ── Slight desaturation (aged flesh) ── */
   float lum=dot(color,vec3(.299,.587,.114));
   color=mix(color,vec3(lum),.07);
+
+  /* ── Chromatic aberration (edges) ── */
   float ca=length(uv)*.010;
-  color.r+=ca*.5;color.b-=ca*.3;
+  color.r+=ca*.5; color.b-=ca*.3;
+
   gl_FragColor=vec4(color,1.);
 }
-`;
+    `;
 
-const mat = new THREE.ShaderMaterial({
-  uniforms:{
-    uTime:      {value:0.0},
-    uResolution:{value:new THREE.Vector2(window.innerWidth,window.innerHeight)},
-    uMouse:     {value:new THREE.Vector2(0,0)},
-    uCameraZ:   {value:0.0},
-    uClickTime: {value:-999.0},
-    uEnvMap:    {value:envTex},
-  },
-  vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position,1.0);}`,
-  fragmentShader:frag,
-});
-scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),mat));
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0.0 },
+        uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+        uMouse: { value: new THREE.Vector2(0, 0) },
+        uCameraZ: { value: 0.0 },
+        uClickTime: { value: -999.0 },
+        uEnvMap: { value: envTex },
+      },
+      vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position,1.0); }`,
+      fragmentShader: frag,
+    });
 
-/* ── HUD 文字資料 ───────────────────────────────────────────── */
-const STATUS=['搏動','吐納','攣縮','滲流','吞噬','嬗變','裂殖'];
-const NEURAL =['微瀾','驚蟄','狂湧','蟄伏','灼燒','崩裂','寂滅'];
-const SPEED_LABELS=['靜止','緩移','前行','疾馳','穿越'];
-const ss=document.getElementById('s-status');
-const sd=document.getElementById('s-depth');
-const sn=document.getElementById('s-neural');
-const sp=document.getElementById('s-press');
-const sv=document.getElementById('s-speed');
+    scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat));
 
-/* ── 主迴圈 ─────────────────────────────────────────────────── */
-let lastMs = performance.now();
-let frame  = 0;
-function animate(){
-  requestAnimationFrame(animate);
-  const nowMs = performance.now();
-  const dt    = Math.min(0.05,(nowMs-lastMs)/1000);
-  lastMs = nowMs;
-  const now = nowMs*.001;
+    const STATUS = ['搏動', '吐納', '攣縮', '滲流', '吞噬', '嬗變', '裂殖'];
+    const NEURAL = ['微瀾', '驚蟄', '狂湧', '蟄伏', '灼燒', '崩裂', '寂滅'];
+    const sStatus = document.getElementById('s-status');
+    const sDepth = document.getElementById('s-depth');
+    const sNeural = document.getElementById('s-neural');
+    const sPress = document.getElementById('s-press');
 
-  /* 動量前進邏輯：
-     搖桿啟動 → velocity 快速跟上 moveInput
-     搖桿釋放 → velocity 以 decay rate 滑行到 0                */
-  const targetVel = state.moveInput * MAX_SPEED;
-  if(Math.abs(state.moveInput)>0.03){
-    state.moveVelocity = smoothTo(state.moveVelocity, targetVel, 9, dt);
-  } else {
-    state.moveVelocity = smoothTo(state.moveVelocity, 0, 5, dt);
-  }
-  state.targetZ += state.moveVelocity * dt;
+    let lastFrameMs = performance.now();
+    function animate() {
+      requestAnimationFrame(animate);
+      const nowMs = performance.now();
+      const dt = Math.min(.05, (nowMs - lastFrameMs) / 1000); // 秒，clamp避免分頁切走後跳一大格
+      lastFrameMs = nowMs;
+      const now = nowMs * .001;
+      state.targetZ += state.moveInput * 2.4 * dt; // 搖桿持續前進/後退（依dt而非幀數，速度與裝置更新率無關）
+      state.currentZ = smoothTo(state.currentZ, state.targetZ, 6, dt);
+      state.mouse.x = smoothTo(state.mouse.x, state.mouseTarget.x, 10, dt); // 視角平滑：不會因單一觸控樣本雜訊瞬間跳動
+      state.mouse.y = smoothTo(state.mouse.y, state.mouseTarget.y, 10, dt);
+      mat.uniforms.uTime.value = now;
+      mat.uniforms.uMouse.value.copy(state.mouse);
+      mat.uniforms.uCameraZ.value = state.currentZ;
+      mat.uniforms.uClickTime.value = state.clickTime;
+      sDepth.textContent = (state.currentZ * 13.8).toFixed(2);
+      sStatus.textContent = STATUS[Math.floor(now * .32) % STATUS.length];
+      sNeural.textContent = NEURAL[Math.floor(now * .21 + 3) % NEURAL.length];
+      sPress.textContent = (Math.sin(now * 1.28) * 11 + 46).toFixed(2);
+      renderer.render(scene, camera);
+    }
+    animate();
 
-  /* 視角與位置平滑 */
-  state.currentZ = smoothTo(state.currentZ, state.targetZ, 8, dt);
-  state.mouse.x  = smoothTo(state.mouse.x,  state.mouseTarget.x, 12, dt);
-  state.mouse.y  = smoothTo(state.mouse.y,  state.mouseTarget.y, 12, dt);
-
-  /* Shader uniforms */
-  mat.uniforms.uTime.value      = now;
-  mat.uniforms.uMouse.value.copy(state.mouse);
-  mat.uniforms.uCameraZ.value   = state.currentZ;
-  mat.uniforms.uClickTime.value = state.clickTime;
-
-  /* DOM 每 5 幀更新（~12Hz），避免頻繁重排影響 GPU 呈現 */
-  if(++frame%5===0){
-    sd.textContent=(state.currentZ*13.8).toFixed(2);
-    ss.textContent=STATUS[Math.floor(now*.32)%STATUS.length];
-    sn.textContent=NEURAL[Math.floor(now*.21+3)%NEURAL.length];
-    sp.textContent=(Math.sin(now*1.28)*11+46).toFixed(2);
-    /* 速度顯示 */
-    const absV = Math.abs(state.moveVelocity);
-    const velRatio = absV/MAX_SPEED;
-    const vi = Math.min(4, Math.floor(velRatio*5));
-    const dir = state.moveVelocity>0.05?'↑ ':state.moveVelocity<-0.05?'↓ ':'';
-    sv.textContent = dir+(velRatio>0.02 ? SPEED_LABELS[vi] : '靜止');
-  }
-
-  renderer.render(scene,camera);
-}
-animate();
-
-/* ── Resize 處理（含手機轉向）──────────────────────────────── */
-function handleResize(){
-  renderer.setSize(window.innerWidth,window.innerHeight);
-  mat.uniforms.uResolution.value.set(window.innerWidth,window.innerHeight);
-  if(isTouch && !state.moveInput) showJoyIdle();
-}
-window.addEventListener('resize', handleResize, {passive:true});
-window.addEventListener('orientationchange', ()=>setTimeout(handleResize,300));
-if(window.visualViewport){
-  window.visualViewport.addEventListener('resize', handleResize);
-}
-</script>
+    function handleResize() {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      mat.uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+    }
+    window.addEventListener('resize', handleResize);
+    // 手機轉向、或網址列出現/消失導致的視窗尺寸變化，補上這兩個監聽會更準確
+    window.addEventListener('orientationchange', () => setTimeout(handleResize, 300));
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
+    }
+  </script>
 </body>
+
 </html>
