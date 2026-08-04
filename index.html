@@ -309,7 +309,7 @@
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
     /* ── Load env texture from external file (keep env.jpg next to this HTML) ── */
-    const envTex = new THREE.TextureLoader().load('env_hd.jpg');
+    const envTex = new THREE.TextureLoader().load('env.jpg');
     envTex.wrapS = envTex.wrapT = THREE.RepeatWrapping;
     envTex.minFilter = THREE.LinearMipmapLinearFilter;
 
